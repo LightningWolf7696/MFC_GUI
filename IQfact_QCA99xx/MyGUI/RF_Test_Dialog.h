@@ -22,7 +22,7 @@ class RF_Test_Dialog : public CDialog
       LPVOID lpParam;
       char* m_DLL;
       char* m_process;
-      char* m_ActionData;
+      char* m_ActionData[256];
       char* m_INIPath;
       BOOL (CALLBACK *funcSetAction)(LPSTR dll, LPSTR process, LPSTR data, LPSTR lpszRunInfo);
    }ThreadParam;
@@ -53,7 +53,7 @@ public:
    funcGetMessage m_cbListMessage;
    BOOL (CALLBACK *m_funcSetAction)(LPSTR dll, LPSTR process, LPSTR data, LPSTR lpszRunInfo);
    HWND m_HParentWnd;
-
+   
    CString m_DLL;
    CString m_process;
    CString m_ListData;
@@ -66,12 +66,14 @@ public:
    CMFCEditBrowseCtrl m_File_BrowseCtrl;
    CListCtrl m_RF_Para_CListCtrl;
    CEdit m_PARAMETER_CEdit; 
+   CButton m_ListButton;
 
    string rtnMsg;
    string m_ACTION_LIST;
+   vector<string> ListView_List;
    vector<string> tetsList;
    vector<ListParameter> actionParameter;
- //  vector<vector<action>> action_List;
+ 
 
    afx_msg void OnCbnSelchangeMfcfontcombo20();
    afx_msg void OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult);
@@ -88,4 +90,6 @@ public:
    void InsertItem(char *lpszFileName, string &lpszRunInfo);
    void RFTestInfo_Show();
    BOOL SetToDutParameter(LPSTR ActionName, LPSTR ParameterName,LPSTR ParameterValue);
+   afx_msg void OnBnClickedButton2();
+   
 };

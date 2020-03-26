@@ -44,10 +44,11 @@ void RF_Test_Dialog::DoDataExchange(CDataExchange* pDX)
 {
    CDialog::DoDataExchange(pDX);
    DDX_Control(pDX, IDC_LIST1, m_CListCtrl);
-   DDX_Control(pDX, IDC_BUTTON1, m_Start_Button);
    DDX_Control(pDX, IDC_DLL_EDIT1, m_DLL_CEdit);
    DDX_Control(pDX, IDC_MFCEDITBROWSE1, m_File_BrowseCtrl);
    DDX_Control(pDX, IDC_RF_PARAMETER_EDIT1, m_PARAMETER_CEdit);
+   DDX_Control(pDX, IDC_BUTTON1, m_Start_Button);
+   DDX_Control(pDX, IDC_BUTTON2, m_ListButton);
 }
 
 BEGIN_MESSAGE_MAP(RF_Test_Dialog, CDialog)
@@ -58,6 +59,7 @@ BEGIN_MESSAGE_MAP(RF_Test_Dialog, CDialog)
    ON_EN_CHANGE(IDC_DLL_EDIT1, &RF_Test_Dialog::OnEnChangeDllEdit1)
    ON_EN_CHANGE(IDC_MFCEDITBROWSE1, &RF_Test_Dialog::OnEnChangeMfceditbrowse1)
    ON_EN_CHANGE(IDC_RF_PARAMETER_EDIT1, &RF_Test_Dialog::OnEnChangeRfParameterEdit1)
+   ON_BN_CLICKED(IDC_BUTTON2, &RF_Test_Dialog::OnBnClickedButton2)
 END_MESSAGE_MAP()
 
 
@@ -270,7 +272,6 @@ void RF_Test_Dialog::OnLvnItemchangedList1(NMHDR *pNMHDR, LRESULT *pResult)
    // TODO: Add your control notification handler code here
 
    m_uNewState  = pNMLV->uNewState;
-
    if(m_uNewState != 0)
    {
        m_ListData =  m_CListCtrl.GetItemText(pNMLV->iItem,pNMLV->iSubItem);
@@ -388,16 +389,20 @@ static DWORD ThreadProcess(LPVOID lpParam)
       LPVOID lpParam;
       char* m_DLL;
       char* m_process;
-      char* m_ActionData;
+      char* m_ActionData[256];
       char* m_INIPath;
       BOOL (CALLBACK *funcSetAction)(LPSTR dll, LPSTR process, LPSTR data, LPSTR lpszRunInfo);
    }LpThreadParam;
    char strMsg[DLL_INFO_SIZE];
    LpThreadParam *m_ThreadParam = (LpThreadParam *)lpParam;
 
-   int rtn = m_ThreadParam->funcSetAction(m_ThreadParam->m_DLL, m_ThreadParam->m_process, m_ThreadParam->m_ActionData, strMsg);
-   if(!rtn)
-      funcGetMessage(strMsg); 
+   for(int i=0;  m_ThreadParam->m_ActionData[i] != '\0'; i++)
+   {
+      //printf("1111");
+      int rtn = m_ThreadParam->funcSetAction(m_ThreadParam->m_DLL, m_ThreadParam->m_process, m_ThreadParam->m_ActionData[i], strMsg);
+      if(!rtn)
+         funcGetMessage(strMsg); 
+   }
    return 1;
 }
 //BOOL (CALLBACK *m_funcSetAction)(LPSTR dll, LPSTR process, LPSTR data, LPSTR lpszRunInfo);
@@ -419,6 +424,11 @@ void RF_Test_Dialog::OnBnClickedButton1()
    m_process = "ALL";
    m_PARAMETER_CEdit.GetWindowText(EditData);
 
+   tmpThreadPara.funcSetAction = NULL;
+   tmpThreadPara.m_DLL         = '\0';
+   tmpThreadPara.m_process     = '\0';
+   memset(tmpThreadPara.m_ActionData, '\0', sizeof(tmpThreadPara.m_ActionData));
+    
    while( ( index = EditData.Find("\r\n",start )) != -1 )
    {
       CString tmp = EditData.Mid(start, index - start);
@@ -452,13 +462,14 @@ void RF_Test_Dialog::OnBnClickedButton1()
    tmpThreadPara.funcSetAction = m_funcSetAction;
    tmpThreadPara.m_DLL         = (char*)m_DLL.GetBuffer(0);
    tmpThreadPara.m_process     = (char*)m_process.GetBuffer(0);
-   tmpThreadPara.m_ActionData  = (char*)actionData.GetBuffer(0);
+   tmpThreadPara.m_ActionData[0]  = (char*)actionData.GetBuffer(0);
 
    ghThreads= CreateThread( NULL, 0, (LPTHREAD_START_ROUTINE)ThreadProcess, (void *)&tmpThreadPara, 0, &dwThreadID);
    if ( ghThreads ) {
       DWORD dwRet = 0;
       MSG msg;
       HWND hwnd;
+      m_ListButton.EnableWindow(FALSE);
       hwnd = ::FindWindow(NULL,"RF Test");
       if(hwnd)
       {
@@ -489,6 +500,7 @@ void RF_Test_Dialog::OnBnClickedButton1()
          }
          break;
       }
+      m_ListButton.EnableWindow(TRUE);
       CloseHandle(ghThreads);
       ::SetLayeredWindowAttributes(hwnd,0,(255*100)/100 , LWA_ALPHA) ;
    }
@@ -546,4 +558,84 @@ void RF_Test_Dialog::OnEnChangeRfParameterEdit1()
    // with the ENM_CHANGE flag ORed into the mask.
 
    // TODO:  Add your control notification handler code here
+}
+
+void RF_Test_Dialog::OnBnClickedButton2()
+{
+   // TODO: Add your control notification handler code here
+   ThreadParam tmpThreadPara;
+   HANDLE ghThreads;
+   DWORD dwThreadID;
+
+   tmpThreadPara.funcSetAction = NULL;
+   tmpThreadPara.m_DLL         = '\0';
+   tmpThreadPara.m_process     = '\0';
+   memset(tmpThreadPara.m_ActionData, '\0', sizeof(tmpThreadPara.m_ActionData));
+   ListView_List.clear();
+
+   for(int i=0; i<m_CListCtrl.GetItemCount(); i++)
+   {
+     // if( m_CListCtrl.GetItemState(i, LVIS_SELECTED) == LVIS_SELECTED ) 
+     if( m_CListCtrl.GetCheck(i))
+      {
+        CString Cstr; 
+        string  str;
+        // str.Format(_T("選中了第%d行"), i); 
+        // AfxMessageBox(str); 
+        Cstr = m_CListCtrl.GetItemText(i, 0);
+        str = Cstr;
+        ListView_List.push_back(str);
+      } 
+   }
+
+   tmpThreadPara.funcSetAction = m_funcSetAction;
+   tmpThreadPara.m_DLL         = (char*)m_DLL.GetBuffer(0);
+   tmpThreadPara.m_process     = (char*)m_process.GetBuffer(0);
+   for(int i=0; i<ListView_List.size(); i++)
+   {
+     tmpThreadPara.m_ActionData[i] = new char[ListView_List.at(i).size()+1];
+     std::strcpy(tmpThreadPara.m_ActionData[i], ListView_List.at(i).c_str());
+   }
+
+   ghThreads= CreateThread( NULL, 0, (LPTHREAD_START_ROUTINE)ThreadProcess, (void *)&tmpThreadPara, 0, &dwThreadID);
+   if ( ghThreads ) {
+      DWORD dwRet = 0;
+      MSG msg;
+      HWND hwnd;
+      m_Start_Button.EnableWindow(FALSE);
+      hwnd = ::FindWindow(NULL,"RF Test");
+      if(hwnd)
+      {
+         /*LONG SetWindowLongA(HWND hWnd, int  nIndex, LONG dwNewLong); */
+         /*BOOL SetLayeredWindowAttributes(HWND hwnd,COLORREF crKey,BYTE bAlpha,DWORD dwFlags); */
+         //::ShowWindow(hwnd, SW_SHOWNA);
+         ::SetWindowLong (hwnd, GWL_EXSTYLE , GetWindowLong (hwnd , GWL_EXSTYLE ) | WS_EX_LAYERED) ;
+         ::SetLayeredWindowAttributes(hwnd,0,(255*60)/100 , LWA_ALPHA ) ; 
+      }
+      //CloseHandle(ghThreads);
+      while (TRUE)
+      {
+         //wait for ghThreads to be over，and wait for
+         //QS_ALLINPUT（Any message is in the queue）
+         dwRet = MsgWaitForMultipleObjects (1, &ghThreads,   FALSE, INFINITE, QS_ALLINPUT);
+         switch(dwRet)
+         {
+         case WAIT_OBJECT_0: 
+            break; //break the loop
+         case WAIT_OBJECT_0 + 1:
+            //get the message from Queue
+            //and dispatch it to specific window
+            PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
+            DispatchMessage(&msg); 
+            continue;
+         default:
+            break; // unexpected failure
+         }
+         break;
+      }
+  
+      CloseHandle(ghThreads);
+      ::SetLayeredWindowAttributes(hwnd,0,(255*100)/100 , LWA_ALPHA) ;
+      m_Start_Button.EnableWindow(TRUE);
+   }
 }
